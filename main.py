@@ -196,7 +196,7 @@ def exploit(target):
                 if exploit_path not in found_urls:
                     found_urls.add(exploit_path)
                     print(f"{Fore.LIGHTGREEN_EX}[FOUND] {exploit_path}{Style.RESET_ALL}")
-                    with open('result.txt', 'a', encoding='utf-8') as f:
+                    with open('Results/env.txt', 'a', encoding='utf-8') as f:
                         f.write(exploit_path + '\n')
                     grab_smtp(exploit_path, resp.text)
                     grab_aws(exploit_path, resp.text)
