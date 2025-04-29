@@ -11,6 +11,9 @@ Installation :
  - How To Use ?
    
                python grabs.py
+
+<h2>Screenshots</h2>
+<img src="https://imgur.com/a/VECaRGR" style="max-width:100%;">
                
 ## ✨ Features:
 - ✅ **Live ENV Scraping**
