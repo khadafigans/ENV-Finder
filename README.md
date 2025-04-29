@@ -13,7 +13,7 @@ Installation :
                python grabs.py
 
 <h2>Screenshots</h2>
-<img src="https://imgur.com/a/VECaRGR" style="max-width:100%;">
+<img src="https://i.imgur.com/Ye8LtKJ.jpeg" style="max-width:100%;">
                
 ## ✨ Features:
 - ✅ **Live ENV Scraping**
