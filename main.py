@@ -11,7 +11,7 @@ LIME = Fore.LIGHTGREEN_EX
 banner = f"""{LIME}{Style.BRIGHT}
 ╔════════════════════════════════════════════════════════╗
 ║                                                        ║
-║              ENV Finder By Bob Marley  	             ║
+║              ENV Finder By Bob Marley		             ║
 ║                                                        ║
 ╚════════════════════════════════════════════════════════╝
 {Style.RESET_ALL}"""
