@@ -17,6 +17,7 @@ Installation :
 - ✅ **Only Grab the first .env found**
 - ✅ **Automatically Grab SMTP (SES,Sendgrid,Mailgun,Office,1And1,Zoho,Mandrill)**
 - ✅ **Auto extract Database information** (phpmyadmin, adminer, etc.)
+- ✅ **Auto extract Stripe, Twillio**
 - ✅ **Auto-save results** to `Results.txt`
 - ✅ **Lightweight & User-friendly**
 - ✅ **Works with Windows & Mac** (Standalone executables)
