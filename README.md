@@ -30,7 +30,8 @@ Installation :
 ------
 You Want Ask About All My Tools Private Add Me On : 
 ```
-[+] Telegram : @marleyybob123 
+[+] Telegram : @marleyybob123
+[+] Telegram Channel : https://t.me/BMARLEYTOOLS
 ```
 # This script is public and not for sale!
 
