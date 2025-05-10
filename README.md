@@ -19,6 +19,7 @@ Installation :
 - ✅ **Live ENV Scraping**
 - ✅ **Only Grab the first .env found**
 - ✅ **Automatically Grab SMTP (SES,Sendgrid,Mailgun,Office,1And1,Zoho,Mandrill)**
+- ✅ **Automatically Test SMTP and send the notification through telegram bot (SES,Sendgrid,Mailgun,Office,1And1,Zoho,Mandrill)**
 - ✅ **Auto extract Database information** (phpmyadmin, adminer, etc.)
 - ✅ **Auto extract Stripe, Twillio**
 - ✅ **Auto-save results** to `Results.txt`
