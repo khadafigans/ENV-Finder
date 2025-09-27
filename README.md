@@ -1,4 +1,4 @@
-# ENV Finder V1 
+# ENV Finder V2 (Latest Version) 
 
 Installation : 
 ------
@@ -22,6 +22,7 @@ Installation :
 - ✅ **Automatically Test SMTP and send the notification through telegram bot (SES,Sendgrid,Mailgun,Office,1And1,Zoho,Mandrill)**
 - ✅ **Auto extract Database information** (phpmyadmin, adminer, etc.)
 - ✅ **Auto extract Stripe, Twillio**
+- ✅ **Auto exploit Apache, debug**
 - ✅ **Auto-save results** to `Results.txt`
 - ✅ **Lightweight & User-friendly**
 - ✅ **Works with Windows & Mac** (Standalone executables)
