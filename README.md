@@ -45,7 +45,12 @@ You Want Ask About All My Tools Private Add Me On :
 ------
 Buy me a Coffe :
 ```
-₿ BTC: 17sbbeTzDMP4aMELVbLW78Rcsj4CDRBiZh
-```
+If you find this project useful and want to support future development:
 
+₿  BTC: 17sbbeTzDMP4aMELVbLW78Rcsj4CDRBiZh
+₮  USDT: TQfx5kjY4d1Q6piDgBVL31d8YJ8xCx5uTd (TRC-20)
+Ξ  ETH: 0xb88cdeba793e13fa39ee19ad34cfe69916b81fa0 (ERC-20)
+Ł  LTC: LffRsEacPDGmFGQESpnSSRTECRxXq4txPq
+```
 <br>©2025 Bob Marley
+
